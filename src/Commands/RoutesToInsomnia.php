@@ -33,7 +33,7 @@ class RoutesToInsomnia extends Command
      *
      * @throws \Exception
      */
-    public function handle(Router $router, Insomnia $insomnia): void
+    public function handle(Router $router, Insomnia $insomnia)
     {
         $filter = $this->option('filter') ?? '';
         $workspace = $insomnia->workspace($this->argument('name'), $this->option('description') ?? '');
@@ -68,6 +68,8 @@ class RoutesToInsomnia extends Command
         $this->createGitIgnoreFile();
 
         file_put_contents($path, json_encode($insomnia));
+
+        return 0;
     }
 
     /**

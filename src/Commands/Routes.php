@@ -63,7 +63,9 @@ class Routes extends Command
         $environment = $workspace->createEnvironment('Base Environment');
         $environment->setData('baseUrl', $this->getDomain());
 
-        $this->createInsomnia($workspace, $map);
+        $variables = [];
+
+        $this->createInsomnia($workspace, $map, $variables);
 
         $path = storage_path(implode(DIRECTORY_SEPARATOR, [
             'insomnia',
@@ -80,7 +82,7 @@ class Routes extends Command
      *
      * @throws \Exception
      */
-    private function createInsomnia(&$folder, array $map)
+    private function createInsomnia(&$folder, array $map, &$variables)
     {
         /**
          * @var string        $key
@@ -90,13 +92,16 @@ class Routes extends Command
         {
             if ( ! ($value instanceof Route))
             {
-                $subFolder = $folder->folder(ucfirst($key));
+                $subFolder = $folder->folder($key);
 
-                $this->createInsomnia($subFolder, $value);
+                $this->createInsomnia($subFolder, $value, $variables);
                 continue;
             }
 
-            $url = '{{ baseUrl }}/' . $value->uri;
+            $name = preg_replace('/[\{\}]/', '', $folder->jsonSerialize()->name);
+            $variables[$name] = true;
+            $name = empty($name) ? $name : $name . '.';
+            $url = '{{ baseUrl }}/' . str_replace(['{', '}'], ['{{ ', ' }}'], $value->uri);
             $action = $this->getRouteAction($value);
             $middleware = $this->getRouteMiddleware($value);
             $description = "Action: {$action}\nMiddleware: {$middleware}";
@@ -110,9 +115,12 @@ class Routes extends Command
 
                 $function = last(explode('@', $action));
 
-                $request = $folder->request(ucfirst(Str::camel($function)), $description, $url, strtoupper($method));
+                $request = $folder->request(Str::camel($function), $description, $url, strtoupper($method));
 
-                $this->setRequestBody($request, $value);
+                try {
+                    // $this->setRequestBody($request, $value);
+                } catch (\Exception $e) {}
+
             }
         }
     }
@@ -141,9 +149,9 @@ class Routes extends Command
         {
             $uri = $route->uri;
 
-            if (Str::startsWith($uri, 'api/'))
+            if (Str::startsWith($uri, 'v2/'))
             {
-                $uri = substr($uri, 4);
+                $uri = substr($uri, 3);
             }
 
             $path = $this->getPath($uri);
@@ -166,7 +174,7 @@ class Routes extends Command
     private function getRoutes(Router $router): array
     {
         return array_filter($router->getRoutes()->getIterator()->getArrayCopy(), function (Route $route) {
-            return in_array('api', $route->gatherMiddleware());
+            return in_array('authenticated', $route->gatherMiddleware());
         });
     }
 
